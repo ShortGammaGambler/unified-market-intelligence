@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  axiom-core:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABENTO_API_KEY=${DATABENTO_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql+asyncpg://axiom:axiom@timescaledb:5432/axiom
+      - MAX_DRAWDOWN_LIMIT=0.15
+      - MAX_POSITION_SIZE=0.25
+      - MAX_LEVERAGE=2.0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - timescaledb
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  quantumedge-ui:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - axiom-core
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_DB: axiom
+      POSTGRES_USER: axiom
+      POSTGRES_PASSWORD: axiom
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  timescale_data:
+  grafana_data:
